@@ -3,6 +3,7 @@ package com.example.bleutoothtotorial;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.View;
 import android.widget.*;
 import android.widget.AdapterView.OnItemClickListener;
@@ -62,11 +64,9 @@ public class MainActivity extends Activity implements OnItemClickListener{
 			}
 			getPaireDevices();
 			startDiscovery();
-			
 		}
 		
 		
-		/*
 		mHandler = new Handler(){
 			public void handleMessage(Message msg){
 				super.handleMessage(msg);
@@ -74,21 +74,21 @@ public class MainActivity extends Activity implements OnItemClickListener{
 				case SUCCESS_CONNECT:
 					ConnectedThread connectedThread = new ConnectedThread((BluetoothSocket)msg.obj);
 					Toast.makeText(getApplicationContext(), "CONNECT", 0).show();
-					String s = "cool";
-					connectedThread.write(s.getBytes());
+					connectedThread.start();
+					
 					break;
 				case MESSAGE_READ:
 					byte[] readBuf = (byte[])msg.obj;
 					String string = new String(readBuf);
-					Toast.makeText(getApplicationContext(), string, 0).show();
+					textViewReceive.setText(string);
 					break;
 				}
 			}
 		};
-		*/
+		
+		
 	}
 		
-	
 
 	@Override
 	protected void onPause() {
@@ -101,7 +101,6 @@ public class MainActivity extends Activity implements OnItemClickListener{
 	  super.onDestroy();
 	  btAdapter.cancelDiscovery();
 	  unregisterReceiver(receiver);
-	  
 	}
 	
 	
@@ -123,11 +122,7 @@ public class MainActivity extends Activity implements OnItemClickListener{
 		}
 		if(listAdapter.getItem(arg2).contains(myDevice.getName())){
 			Toast.makeText(getApplicationContext(),"device is paried",0).show();
-			//Object[] o = devicesArray.toArray();
-			//BluetoothDevice selectDevice = devices.get(arg2);
-			//ConnectThread connect = new ConnectThread(selectDevice);
-			//connect.start();
-			ConnectThread connect = new ConnectThread(myDevice);
+			ConnectThread connect = new ConnectThread(myDevice); 
 			connect.start();
 		}
 		else{
@@ -163,6 +158,7 @@ public class MainActivity extends Activity implements OnItemClickListener{
 		}
 	}
 
+	
 	/*================================ init() ==========================================*/
 	private void init(){
 		bSend = (Button)findViewById(R.id.bSend);
@@ -227,7 +223,7 @@ public class MainActivity extends Activity implements OnItemClickListener{
 	}
 	
 	
-	/*=============================== Connect Thread =====================================*/
+	/*=============================== Connect Thread ===================================*/
 	private class ConnectThread extends Thread {
 	    
 		private final BluetoothSocket mmSocket;
@@ -236,7 +232,12 @@ public class MainActivity extends Activity implements OnItemClickListener{
 	    private OutputStream mmOutputStream;
 	    
 	    private String msg;
-	 
+	    private String receiveMsg;
+	    
+	    final byte delimiter=10;
+	    int readBufferPosition=0;
+	    private byte[] readBuffer = new byte[1024]; 
+
 	    public ConnectThread(BluetoothDevice device) {
 	        // Use a temporary object that is later assigned to mmSocket,
 	        // because mmSocket is final
@@ -254,7 +255,7 @@ public class MainActivity extends Activity implements OnItemClickListener{
 	    public void run() {
 	        // Cancel discovery because it will slow down the connection
 	    	btAdapter.cancelDiscovery();
-	 
+	    	
 	        try {
 	            // Connect the device through the socket. This will block
 	            // until it succeeds or throws an exception
@@ -273,7 +274,7 @@ public class MainActivity extends Activity implements OnItemClickListener{
 	        // Do work to manage the connection (in a separate thread)
 	        
 	        //manageConnectedSocket(mmSocket);
-			//mHandler.obtainMessage(SUCCESS_CONNECT,mmSocket).sendToTarget();
+	        mHandler.obtainMessage(SUCCESS_CONNECT,mmSocket).sendToTarget();
 	        
 	        bSend.setOnClickListener(new View.OnClickListener() {
 				 @Override
@@ -282,11 +283,15 @@ public class MainActivity extends Activity implements OnItemClickListener{
 					  msg = editTextMsg+"\n";
 				        try {
 							mmOutputStream.write(msg.getBytes());
+							
+							
+							//textViewReceive.setText(receiveMsg);
 						} catch (IOException e) {
 							// TODO Auto-generated catch block
 							e.printStackTrace();
 						}
-				}
+				 }
+                        
 			});
 	        
 	    }
@@ -308,7 +313,7 @@ public class MainActivity extends Activity implements OnItemClickListener{
 	
 	
 	
-	/*============================== Connected Thread ====================================*/
+	/*============================== Connected Thread ==================================*/
 	private class ConnectedThread extends Thread {
 	    
 		private final BluetoothSocket mmSocket;
